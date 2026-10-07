@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Portfolio Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  
+  <!-- Header Section -->
+  <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 border-b border-slate-800 pb-6 gap-4">
+    <div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
+        <i class="fa-solid fa-credit-card mr-2"></i> Card Portfolio Dashboard
+      </h1>
+      <p class="text-slate-400 text-sm mt-1">Managed via <code class="bg-slate-800 text-indigo-300 px-2 py-0.5 rounded">api/list-cc.json</code> (Direct Fetch)</p>
+    </div>
+    
+    <!-- Quick Search Bar -->
+    <div class="w-full md:w-72">
+      <div class="relative">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+          <i class="fa-solid fa-search"></i>
+        </span>
+        <input type="text" id="searchInput" placeholder="Search cards, banks, or brands..." 
+          class="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    
+    <!-- Sidebar: Billing Details -->
+    <div class="lg:col-span-1 space-y-6">
+      <div class="bg-slate-800/60 backdrop-blur border border-slate-700/80 rounded-2xl p-6 shadow-xl sticky top-6">
+        <h2 class="text-lg font-bold text-slate-200 mb-4 flex items-center">
+          <i class="fa-solid fa-user-shield text-indigo-400 mr-2"></i> Profile & Billing
+        </h2>
+        <div id="billingDetailsContainer" class="space-y-4 text-sm">
+          <div class="animate-pulse space-y-3">
+            <div class="h-4 bg-slate-700 rounded w-3/4"></div>
+            <div class="h-4 bg-slate-700 rounded w-1/2"></div>
+            <div class="h-4 bg-slate-700 rounded w-5/6"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Panel: Card Groups & Grid -->
+    <div class="lg:col-span-3 space-y-8">
+      
+      <!-- Quick Stats Bar -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 shadow">
+          <p class="text-xs text-slate-400 font-medium">Total Portfolios</p>
+          <p id="totalGroups" class="text-2xl font-bold text-indigo-400 mt-1">-</p>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 shadow">
+          <p class="text-xs text-slate-400 font-medium">Total Active Cards</p>
+          <p id="totalCards" class="text-2xl font-bold text-cyan-400 mt-1">-</p>
+        </div>
+        <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-4 shadow">
+          <p class="text-xs text-slate-400 font-medium">Data Status</p>
+          <p id="dataStatus" class="text-sm font-semibold text-amber-400 mt-2 flex items-center">
+            <i class="fa-solid fa-circle-notch fa-spin mr-2"></i> Fetching API...
+          </p>
+        </div>
+      </div>
+
+      <!-- Cards Container -->
+      <div id="cardGroupsContainer" class="space-y-6">
+        <!-- Dynamic groups rendered here -->
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="fixed bottom-5 right-5 bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-2 z-50 text-sm font-medium">
+  <i class="fa-solid fa-check-circle"></i>
+  <span id="toastMessage">Copied to clipboard!</span>
+</div>
+
+<!-- JavaScript Data Fetcher & UI Renderer -->
+<script>
+let cachedData = null;
+
+async function loadCardData() {
+  try {
+    const response = await fetch('api/list-cc.json');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status} (${response.statusText})`);
+    }
+    cachedData = await response.json();
+    
+    document.getElementById('dataStatus').innerHTML = '<i class="fa-solid fa-check text-emerald-400 mr-2"></i> Connected (JSON Loaded)';
+    document.getElementById('dataStatus').className = 'text-sm font-semibold text-emerald-400 mt-2 flex items-center';
+    
+    renderDashboard(cachedData);
+  } catch (error) {
+    console.error("Failed to fetch api/list-cc.json:", error);
+    document.getElementById('dataStatus').innerHTML = '<i class="fa-solid fa-circle-xmark text-rose-400 mr-2"></i> Fetch Failed';
+    document.getElementById('dataStatus').className = 'text-sm font-semibold text-rose-400 mt-2 flex items-center';
+    
+    document.getElementById('billingDetailsContainer').innerHTML = `
+      <div class="text-rose-400 text-xs space-y-2">
+        <p class="font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Error loading API file:</p>
+        <p class="font-mono bg-slate-900/80 p-2 rounded text-slate-300">${error.message}</p>
+        <p class="text-slate-400">Please ensure <code class="text-indigo-300">api/list-cc.json</code> exists and you are running this page via a local web server (CORS requirement).</p>
+      </div>`;
+    
+    document.getElementById('cardGroupsContainer').innerHTML = `
+      <div class="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-8 text-center text-rose-300 space-y-3">
+        <i class="fa-solid fa-server text-3xl mb-1"></i>
+        <h3 class="font-bold text-lg">Unable to retrieve <code class="text-indigo-300">api/list-cc.json</code></h3>
+        <p class="text-sm text-slate-400 max-w-md mx-auto">Direct file fetching from local disk without a web server often triggers CORS restrictions. Try running <code class="text-slate-200">npx http-server</code> or opening via a local development server.</p>
+      </div>`;
+  }
+}
+
+function renderDashboard(data, filter = '') {
+  const billingContainer = document.getElementById('billingDetailsContainer');
+  const groupsContainer = document.getElementById('cardGroupsContainer');
+
+  if (!data || !data.billing_details || !data.card_groups) {
+    throw new Error("Invalid JSON structure returned by api/list-cc.json");
+  }
+
+  // Render Billing Information
+  const b = data.billing_details;
+  billingContainer.innerHTML = `
+    <div class="space-y-3">
+      <div>
+        <span class="text-slate-400 text-xs block">Full Name</span>
+        <span class="font-medium text-slate-100 text-base">${b.full_name}</span>
+      </div>
+      <div>
+        <span class="text-slate-400 text-xs block">Street Address</span>
+        <span class="font-medium text-slate-200">${b.street_address}</span>
+      </div>
+      <div>
+        <span class="text-slate-400 text-xs block">City / State</span>
+        <span class="font-medium text-slate-200">${b.city}, ${b.state}</span>
+      </div>
+      <div>
+        <span class="text-slate-400 text-xs block">Postal Code</span>
+        <span class="font-medium text-slate-200 font-mono">${b.postal_code}</span>
+      </div>
+      <div>
+        <span class="text-slate-400 text-xs block">Country</span>
+        <span class="font-medium text-slate-200">${b.country} 🇺🇸</span>
+      </div>
+    </div>`;
+
+  let totalCardsCount = 0;
+  let groupsHTML = '';
+
+  data.card_groups.forEach((group) => {
+    const filteredCards = group.cards.filter(card => {
+      const query = filter.toLowerCase();
+      return card.number.includes(query) ||
+             group.info.toLowerCase().includes(query) ||
+             (group.issuer && group.issuer.toLowerCase().includes(query));
+    });
+
+    if (filter && filteredCards.length === 0) return;
+    totalCardsCount += filteredCards.length;
+
+    groupsHTML += `
+      <div class="bg-slate-800/40 border border-slate-700/70 rounded-2xl p-6 shadow-md backdrop-blur">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-slate-700/60 pb-3 gap-2">
+          <div>
+            <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">${group.info}</span>
+            ${group.issuer ? `<span class="ml-2 px-2.5 py-1 text-xs font-semibold rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">${group.issuer}</span>` : ''}
+          </div>
+          <span class="text-xs text-slate-400 font-medium"><i class="fa-solid fa-globe mr-1"></i> ${group.country}</span>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          ${filteredCards.map(card => `
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-3 flex items-center justify-between hover:border-slate-700 transition-all group">
+              <div class="font-mono text-sm tracking-wide text-slate-200">
+                ${formatCardNumber(card.number)}
+                <div class="text-xs text-slate-500 space-x-2 mt-0.5">
+                  <span>Exp: <strong class="text-slate-400">${card.exp_month}/${card.exp_year}</strong></span>
+                  <span>CVV: <strong class="text-slate-400">${card.cvv}</strong></span>
+                </div>
+              </div>
+              <button onclick="copyToClipboard('${card.number}\vert{}${card.exp_month}|${card.exp_year}\vert{}${card.cvv}')" 
+                class="p-2 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-all" title="Copy Card Record">
+                <i class="fa-regular fa-copy"></i>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  document.getElementById('totalGroups').innerText = data.card_groups.length;
+  document.getElementById('totalCards').innerText = totalCardsCount;
+  groupsContainer.innerHTML = groupsHTML || '<p class="text-center text-slate-500 py-12">No matching cards found.</p>';
+}
+
+function formatCardNumber(num) {
+  return num.replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const toast = document.getElementById('toast');
+    toast.classList.remove('translate-y-20', 'opacity-0');
+    setTimeout(() => {
+      toast.classList.add('translate-y-20', 'opacity-0');
+    }, 2000);
+  });
+}
+
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  if (cachedData) {
+    renderDashboard(cachedData, e.target.value);
+  }
+});
+
+// Initialize Data Load on Page Ready
+loadCardData();
+</script>
+</body>
+</html>
